@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+:root {
+  --primary-color: #1677ff;
+  --bg-color: #f5f5f5;
+}
+
+body {
+  background-color: var(--bg-color);
+  min-height: 100vh;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
