@@ -25,6 +25,7 @@ export default function LoginPage() {
       );
       localStorage.setItem("token", res.token);
       localStorage.setItem("username", res.user.username);
+      localStorage.setItem("is_admin", res.user.is_admin ? "true" : "false");
       messageApi.success("注册成功，已自动登录");
       setTimeout(() => router.push("/"), 1000);
     } catch (err: any) {
@@ -40,6 +41,7 @@ export default function LoginPage() {
       const res = await authApi.login(values.username, values.password);
       localStorage.setItem("token", res.token);
       localStorage.setItem("username", res.user.username);
+      localStorage.setItem("is_admin", res.user.is_admin ? "true" : "false");
       messageApi.success("登录成功");
       setTimeout(() => router.push("/"), 1000);
     } catch (err: any) {

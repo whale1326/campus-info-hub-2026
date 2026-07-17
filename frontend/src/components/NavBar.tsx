@@ -11,25 +11,28 @@ import {
   UserOutlined,
   LogoutOutlined,
   LoginOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState } from "react";
 
 export default function NavBar() {
   const pathname = usePathname();
-  const [user, setUser] = useState<{ username: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; is_admin: boolean } | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     const username = localStorage.getItem("username");
+    const is_admin = localStorage.getItem("is_admin") === "true";
     if (token && username) {
-      setUser({ username });
+      setUser({ username, is_admin });
     }
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("username");
+    localStorage.removeItem("is_admin");
     setUser(null);
     messageApi.success("已退出登录");
   };
@@ -41,6 +44,14 @@ export default function NavBar() {
         label: `用户: ${user?.username}`,
         disabled: true,
       },
+      ...(user?.is_admin
+        ? [{
+            key: "admin",
+            label: "管理后台",
+            icon: <SettingOutlined />,
+            onClick: () => { window.location.href = "/admin"; },
+          }]
+        : []),
       { type: "divider" as const },
       {
         key: "logout",
@@ -127,6 +138,23 @@ export default function NavBar() {
         <Space>
           {user ? (
             <>
+              {user.is_admin && (
+                <Link href="/admin">
+                  <Button
+                    icon={<SettingOutlined />}
+                    style={{
+                      borderRadius: 8,
+                      fontWeight: 500,
+                      height: 38,
+                      border: "1px solid rgba(79, 70, 229, 0.3)",
+                      color: "#4f46e5",
+                      background: "rgba(79, 70, 229, 0.06)",
+                    }}
+                  >
+                    管理后台
+                  </Button>
+                </Link>
+              )}
               <Link href="/post/create">
                 <Button
                   type="primary"
