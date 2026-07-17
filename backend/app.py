@@ -16,7 +16,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'campus-info-hub-secret-2026')
-app.config['DATABASE'] = os.environ.get('DATABASE_PATH', os.path.join(os.path.dirname(__file__), 'campus.db'))
+app.config['DATABASE'] = os.environ.get('DATABASE_PATH', os.path.join(os.path.expanduser('~'), 'campus_info_hub.db'))
 app.config['TOKEN_EXPIRY_HOURS'] = 24
 
 
@@ -33,6 +33,7 @@ def get_db():
         g.db = sqlite3.connect(get_db_path())
         g.db.row_factory = sqlite3.Row
         g.db.execute('PRAGMA foreign_keys = ON')
+        g.db.execute('PRAGMA journal_mode = MEMORY')
     return g.db
 
 
