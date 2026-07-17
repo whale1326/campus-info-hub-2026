@@ -54,6 +54,7 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             contact TEXT DEFAULT '',
+            is_admin INTEGER DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now', 'localtime'))
         );
 
@@ -76,6 +77,22 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
         CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
     """)
+
+    # Add is_admin column if upgrading from older schema (ignore error if exists)
+    try:
+        conn.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+
+    # Create default admin account if not exists
+    admin_hash = hashlib.sha256(('admin123' + app.config['SECRET_KEY']).encode('utf-8')).hexdigest()
+    existing_admin = conn.execute('SELECT id FROM users WHERE username = ?', ('admin',)).fetchone()
+    if not existing_admin:
+        conn.execute(
+            'INSERT INTO users (username, password_hash, contact, is_admin) VALUES (?, ?, ?, 1)',
+            ('admin', admin_hash, 'System Administrator')
+        )
+
     conn.commit()
     conn.close()
 
@@ -86,11 +103,12 @@ def hash_password(password):
     return hashlib.sha256(password.encode('utf-8') + app.config['SECRET_KEY'].encode('utf-8')).hexdigest()
 
 
-def generate_token(user_id, username):
+def generate_token(user_id, username, is_admin=False):
     """Generate JWT token."""
     payload = {
         'user_id': user_id,
         'username': username,
+        'is_admin': is_admin,
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=app.config['TOKEN_EXPIRY_HOURS'])
     }
     return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
@@ -117,6 +135,24 @@ def login_required(f):
         payload = verify_token(token)
         if not payload:
             return jsonify({'error': 'Token expired or invalid'}), 401
+        g.current_user = payload
+        return f(*args, **kwargs)
+    return decorated
+
+
+def admin_required(f):
+    """Decorator for routes that require admin authentication."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Missing or invalid token'}), 401
+        token = auth_header.split(' ', 1)[1]
+        payload = verify_token(token)
+        if not payload:
+            return jsonify({'error': 'Token expired or invalid'}), 401
+        if not payload.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
         g.current_user = payload
         return f(*args, **kwargs)
     return decorated
@@ -180,13 +216,13 @@ def register():
     )
     db.commit()
     user_id = cursor.lastrowid
-    token = generate_token(user_id, username)
+    token = generate_token(user_id, username, is_admin=False)
 
     app.logger.info(f'User registered: {username} (id={user_id})')
     return jsonify({
         'message': 'Registration successful',
         'token': token,
-        'user': {'id': user_id, 'username': username, 'contact': contact}
+        'user': {'id': user_id, 'username': username, 'contact': contact, 'is_admin': False}
     }), 201
 
 
@@ -206,19 +242,24 @@ def login():
 
     db = get_db()
     user = db.execute(
-        'SELECT id, username, password_hash, contact FROM users WHERE username = ?',
+        'SELECT id, username, password_hash, contact, is_admin FROM users WHERE username = ?',
         (username,)
     ).fetchone()
 
     if not user or user['password_hash'] != hash_password(password):
         return jsonify({'error': 'Invalid username or password'}), 401
 
-    token = generate_token(user['id'], user['username'])
-    app.logger.info(f'User logged in: {username} (id={user["id"]})')
+    token = generate_token(user['id'], user['username'], is_admin=bool(user['is_admin']))
+    app.logger.info(f'User logged in: {username} (id={user["id"]}, admin={user["is_admin"]})')
     return jsonify({
         'message': 'Login successful',
         'token': token,
-        'user': {'id': user['id'], 'username': user['username'], 'contact': user['contact']}
+        'user': {
+            'id': user['id'],
+            'username': user['username'],
+            'contact': user['contact'],
+            'is_admin': bool(user['is_admin'])
+        }
     })
 
 
@@ -228,7 +269,7 @@ def get_profile():
     """Get current user profile."""
     db = get_db()
     user = db.execute(
-        'SELECT id, username, contact, created_at FROM users WHERE id = ?',
+        'SELECT id, username, contact, is_admin, created_at FROM users WHERE id = ?',
         (g.current_user['user_id'],)
     ).fetchone()
     if not user:
@@ -462,6 +503,211 @@ def get_stats():
         'total_posts': total,
         'by_category': {row['category']: row['count'] for row in categories},
         'recent_posts': [dict(r) for r in recent]
+    })
+
+
+# === Admin API ===
+
+@app.route('/api/admin/stats', methods=['GET'])
+@admin_required
+def admin_stats():
+    """
+    Admin dashboard statistics.
+    Response: { "total_users": N, "total_posts": N, "active_posts": N, "by_category": {...}, "by_status": {...} }
+    """
+    db = get_db()
+    total_users = db.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+    total_posts = db.execute('SELECT COUNT(*) FROM posts').fetchone()[0]
+    active_posts = db.execute("SELECT COUNT(*) FROM posts WHERE status = 'active'").fetchone()[0]
+
+    by_category = db.execute('''
+        SELECT category, COUNT(*) as count
+        FROM posts GROUP BY category
+    ''').fetchall()
+
+    by_status = db.execute('''
+        SELECT status, COUNT(*) as count
+        FROM posts GROUP BY status
+    ''').fetchall()
+
+    recent_users = db.execute('''
+        SELECT id, username, contact, is_admin, created_at
+        FROM users ORDER BY created_at DESC LIMIT 5
+    ''').fetchall()
+
+    return jsonify({
+        'total_users': total_users,
+        'total_posts': total_posts,
+        'active_posts': active_posts,
+        'by_category': {row['category']: row['count'] for row in by_category},
+        'by_status': {row['status']: row['count'] for row in by_status},
+        'recent_users': [dict(r) for r in recent_users]
+    })
+
+
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def admin_list_users():
+    """
+    List all users. Admin only.
+    Query params: page, page_size, keyword
+    Response: { "users": [...], "total": N }
+    """
+    keyword = request.args.get('keyword', '')
+    page = max(int(request.args.get('page', 1)), 1)
+    page_size = min(int(request.args.get('page_size', 20)), 50)
+    offset = (page - 1) * page_size
+
+    query = 'SELECT id, username, contact, is_admin, created_at FROM users WHERE 1=1'
+    params = []
+    if keyword:
+        query += ' AND username LIKE ?'
+        params.append(f'%{keyword}%')
+
+    count_query = query.replace('SELECT id, username, contact, is_admin, created_at', 'SELECT COUNT(*)')
+    db = get_db()
+    total = db.execute(count_query, params).fetchone()[0]
+
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    params.extend([page_size, offset])
+    users = db.execute(query, params).fetchall()
+
+    return jsonify({
+        'users': [dict(u) for u in users],
+        'total': total,
+        'page': page,
+        'page_size': page_size
+    })
+
+
+@app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_user(user_id):
+    """
+    Delete a user and all their posts. Admin only.
+    Response: { "message": "..." }
+    """
+    if user_id == g.current_user['user_id']:
+        return jsonify({'error': 'Cannot delete yourself'}), 400
+
+    db = get_db()
+    user = db.execute('SELECT id, is_admin FROM users WHERE id = ?', (user_id,)).fetchone()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    db.execute('DELETE FROM posts WHERE user_id = ?', (user_id,))
+    db.execute('DELETE FROM users WHERE id = ?', (user_id,))
+    db.commit()
+
+    app.logger.info(f'Admin deleted user: id={user_id}, by admin={g.current_user["username"]}')
+    return jsonify({'message': 'User and all associated posts deleted successfully'})
+
+
+@app.route('/api/admin/posts', methods=['GET'])
+@admin_required
+def admin_list_posts():
+    """
+    List all posts (including all statuses). Admin only.
+    Query params: category, status, keyword, page, page_size
+    Response: { "posts": [...], "total": N }
+    """
+    category = request.args.get('category', '')
+    status = request.args.get('status', '')
+    keyword = request.args.get('keyword', '')
+    page = max(int(request.args.get('page', 1)), 1)
+    page_size = min(int(request.args.get('page_size', 20)), 50)
+    offset = (page - 1) * page_size
+
+    query = '''
+        SELECT p.*, u.username AS author_name
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        WHERE 1=1
+    '''
+    params = []
+
+    if category:
+        query += ' AND p.category = ?'
+        params.append(category)
+    if status:
+        query += ' AND p.status = ?'
+        params.append(status)
+    if keyword:
+        query += ' AND (p.title LIKE ? OR p.content LIKE ?)'
+        params.extend([f'%{keyword}%', f'%{keyword}%'])
+
+    count_query = query.replace('SELECT p.*, u.username AS author_name', 'SELECT COUNT(*)')
+    db = get_db()
+    total = db.execute(count_query, params).fetchone()[0]
+
+    query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?'
+    params.extend([page_size, offset])
+    posts = db.execute(query, params).fetchall()
+
+    return jsonify({
+        'posts': [dict(p) for p in posts],
+        'total': total,
+        'page': page,
+        'page_size': page_size
+    })
+
+
+@app.route('/api/admin/posts/<int:post_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_post(post_id):
+    """
+    Delete any post. Admin only.
+    Response: { "message": "..." }
+    """
+    db = get_db()
+    post = db.execute('SELECT id, title FROM posts WHERE id = ?', (post_id,)).fetchone()
+    if not post:
+        return jsonify({'error': 'Post not found'}), 404
+
+    db.execute('DELETE FROM posts WHERE id = ?', (post_id,))
+    db.commit()
+
+    app.logger.info(f'Admin deleted post: id={post_id}, title="{post["title"]}", by admin={g.current_user["username"]}')
+    return jsonify({'message': 'Post deleted by admin successfully'})
+
+
+@app.route('/api/admin/posts/<int:post_id>/status', methods=['PUT'])
+@admin_required
+def admin_update_post_status(post_id):
+    """
+    Update post status (moderation). Admin only.
+    Request: { "status": "active|resolved|closed" }
+    Response: { "message": "...", "post": {...} }
+    """
+    data = request.get_json()
+    if not data or 'status' not in data:
+        return jsonify({'error': 'Status is required'}), 400
+
+    new_status = data['status']
+    if new_status not in ('active', 'resolved', 'closed'):
+        return jsonify({'error': 'Invalid status'}), 400
+
+    db = get_db()
+    post = db.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
+    if not post:
+        return jsonify({'error': 'Post not found'}), 404
+
+    db.execute(
+        "UPDATE posts SET status = ?, updated_at = datetime('now', 'localtime') WHERE id = ?",
+        (new_status, post_id)
+    )
+    db.commit()
+
+    updated = db.execute('''
+        SELECT p.*, u.username AS author_name
+        FROM posts p JOIN users u ON p.user_id = u.id
+        WHERE p.id = ?
+    ''', (post_id,)).fetchone()
+
+    app.logger.info(f'Admin updated post status: id={post_id}, status={new_status}, by admin={g.current_user["username"]}')
+    return jsonify({
+        'message': 'Post status updated successfully',
+        'post': dict(updated)
     })
 
 
