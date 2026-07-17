@@ -44,6 +44,7 @@ export interface User {
   id: number;
   username: string;
   contact: string;
+  is_admin?: boolean;
 }
 
 function getToken(): string | null {
@@ -53,6 +54,11 @@ function getToken(): string | null {
 
 export function isLoggedIn(): boolean {
   return !!getToken();
+}
+
+export function isAdmin(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("is_admin") === "true";
 }
 
 function authHeaders(): HeadersInit {
@@ -154,4 +160,85 @@ export const postsApi = {
 
 export const statsApi = {
   get: () => request<StatsResponse>("/stats"),
+};
+
+// === Admin API ===
+
+export interface AdminStats {
+  total_users: number;
+  total_posts: number;
+  active_posts: number;
+  by_category: Record<string, number>;
+  by_status: Record<string, number>;
+  recent_users: Array<{
+    id: number;
+    username: string;
+    contact: string;
+    is_admin: boolean;
+    created_at: string;
+  }>;
+}
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  contact: string;
+  is_admin: boolean;
+  created_at: string;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUser[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface AdminPostsResponse {
+  posts: Post[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export const adminApi = {
+  getStats: () => request<AdminStats>("/admin/stats"),
+
+  listUsers: (params?: { keyword?: string; page?: number; page_size?: number }) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v) query.append(k, String(v));
+      });
+    }
+    return request<AdminUsersResponse>(`/admin/users${query.toString() ? `?${query}` : ""}`);
+  },
+
+  deleteUser: (id: number) =>
+    request<{ message: string }>(`/admin/users/${id}`, { method: "DELETE" }),
+
+  listPosts: (params?: {
+    category?: string;
+    status?: string;
+    keyword?: string;
+    page?: number;
+    page_size?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v) query.append(k, String(v));
+      });
+    }
+    return request<AdminPostsResponse>(`/admin/posts${query.toString() ? `?${query}` : ""}`);
+  },
+
+  deletePost: (id: number) =>
+    request<{ message: string }>(`/admin/posts/${id}`, { method: "DELETE" }),
+
+  updatePostStatus: (id: number, status: string) =>
+    request<{ message: string; post: Post }>(`/admin/posts/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    }),
 };
