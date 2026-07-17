@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, Tag, Descriptions, Button, Spin, message, Modal, Empty, Row, Col } from "antd";
+import { Card, Tag, Button, Spin, message, Modal, Empty, Row, Col } from "antd";
 import {
   ArrowLeftOutlined,
   DeleteOutlined,
   CheckCircleOutlined,
   SearchOutlined,
+  UserOutlined,
+  ClockCircleOutlined,
+  PhoneOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -64,7 +67,7 @@ export default function MarketDetailPage() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: "center", padding: 80 }}>
+      <div style={{ textAlign: "center", padding: 120 }}>
         <Spin size="large" />
       </div>
     );
@@ -74,85 +77,151 @@ export default function MarketDetailPage() {
     return <Empty description="商品不存在" />;
   }
 
-  const currentUsername = typeof window !== "undefined" ? localStorage.getItem("username") : null;
+  const currentUsername =
+    typeof window !== "undefined" ? localStorage.getItem("username") : null;
   const isOwner = currentUsername === post.author_name;
 
   return (
-    <div>
+    <div className="fade-in-up">
       {contextHolder}
       <Link href="/market">
-        <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingLeft: 0, marginBottom: 16 }}>
+        <Button
+          type="link"
+          icon={<ArrowLeftOutlined />}
+          style={{ paddingLeft: 0, marginBottom: 16, color: "#10b981" }}
+        >
           返回市场
         </Button>
       </Link>
 
-      <Card>
-        <Row gutter={24}>
-          <Col span={10}>
+      <Card
+        style={{
+          borderRadius: 12,
+          border: "none",
+          boxShadow: "var(--card-shadow)",
+          overflow: "hidden",
+        }}
+        styles={{ body: { padding: 0 } }}
+      >
+        <Row gutter={0}>
+          {/* Image Section */}
+          <Col xs={24} md={10}>
             {post.image_url ? (
               <img
                 src={post.image_url}
                 alt={post.title}
-                style={{ width: "100%", borderRadius: 8 }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  minHeight: 320,
+                  objectFit: "cover",
+                }}
               />
             ) : (
               <div
                 style={{
-                  height: 300,
-                  background: "#f5f5f5",
+                  height: 360,
+                  background: "var(--gradient-green)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  borderRadius: 8,
-                  color: "#ccc",
-                  fontSize: 48,
+                  color: "rgba(255,255,255,0.6)",
+                  fontSize: 64,
                 }}
               >
                 <SearchOutlined />
               </div>
             )}
           </Col>
-          <Col span={14}>
-            <div style={{ marginBottom: 16 }}>
-              <Tag color="green">二手交易</Tag>
-              {post.status === "resolved" && <Tag color="success">已交易</Tag>}
-            </div>
-            <h2>{post.title}</h2>
-            <div style={{ color: "#f5222d", fontSize: 28, fontWeight: 700, margin: "16px 0" }}>
-              ¥{post.price.toFixed(2)}
-            </div>
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="发布者">{post.author_name}</Descriptions.Item>
-              <Descriptions.Item label="联系方式">{post.contact || "未提供"}</Descriptions.Item>
-              <Descriptions.Item label="发布时间">
-                {dayjs(post.created_at).format("YYYY-MM-DD HH:mm")}
-              </Descriptions.Item>
-            </Descriptions>
-            {isOwner && (
-              <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-                {post.status === "active" && (
-                  <Button icon={<CheckCircleOutlined />} onClick={handleResolve}>
-                    标记已交易
-                  </Button>
+
+          {/* Info Section */}
+          <Col xs={24} md={14}>
+            <div style={{ padding: "28px 28px 20px" }}>
+              <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
+                <Tag color="green" style={{ borderRadius: 4 }}>二手交易</Tag>
+                {post.status === "resolved" && (
+                  <Tag color="success" style={{ borderRadius: 4 }}>已交易</Tag>
                 )}
-                <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>
-                  删除
-                </Button>
               </div>
-            )}
+
+              <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, marginBottom: 16, color: "#1a1a2e" }}>
+                {post.title}
+              </h2>
+
+              <div
+                style={{
+                  background: "rgba(16, 185, 129, 0.06)",
+                  borderRadius: 12,
+                  padding: "16px 20px",
+                  marginBottom: 20,
+                }}
+              >
+                <span style={{ color: "#999", fontSize: 13 }}>价格</span>
+                <div style={{ color: "#ef4444", fontSize: 32, fontWeight: 700 }}>
+                  ¥{post.price.toFixed(2)}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <UserOutlined style={{ color: "#4f46e5" }} />
+                  <span style={{ color: "#666", fontSize: 14 }}>发布者:</span>
+                  <span style={{ fontWeight: 500, fontSize: 14 }}>{post.author_name}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <PhoneOutlined style={{ color: "#10b981" }} />
+                  <span style={{ color: "#666", fontSize: 14 }}>联系方式:</span>
+                  <span style={{ fontSize: 14 }}>{post.contact || "未提供"}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <ClockCircleOutlined style={{ color: "#999" }} />
+                  <span style={{ color: "#666", fontSize: 14 }}>发布时间:</span>
+                  <span style={{ fontSize: 14 }}>
+                    {dayjs(post.created_at).format("YYYY-MM-DD HH:mm")}
+                  </span>
+                </div>
+              </div>
+
+              {isOwner && (
+                <div style={{ marginTop: 24, display: "flex", gap: 8 }}>
+                  {post.status === "active" && (
+                    <Button
+                      icon={<CheckCircleOutlined />}
+                      onClick={handleResolve}
+                      style={{ borderRadius: 8 }}
+                    >
+                      标记已交易
+                    </Button>
+                  )}
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={handleDelete}
+                    style={{ borderRadius: 8 }}
+                  >
+                    删除
+                  </Button>
+                </div>
+              )}
+            </div>
           </Col>
         </Row>
 
-        <div style={{ marginTop: 24 }}>
-          <h4>商品描述</h4>
+        {/* Description */}
+        <div style={{ padding: "0 28px 24px" }}>
+          <h4 style={{ fontWeight: 600, marginBottom: 12, color: "#1a1a2e" }}>
+            商品描述
+          </h4>
           <div
             style={{
-              background: "#fafafa",
-              padding: 16,
-              borderRadius: 8,
+              background: "#fafbfc",
+              padding: 20,
+              borderRadius: 12,
               whiteSpace: "pre-wrap",
-              lineHeight: 1.8,
+              lineHeight: 1.9,
               fontSize: 15,
+              color: "#333",
+              border: "1px solid #f0f0f0",
             }}
           >
             {post.content}

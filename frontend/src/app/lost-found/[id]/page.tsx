@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, Tag, Descriptions, Button, Spin, message, Modal, Empty } from "antd";
+import { Card, Tag, Button, Spin, message, Modal, Empty, Descriptions } from "antd";
 import {
   ArrowLeftOutlined,
   EditOutlined,
   DeleteOutlined,
   CheckCircleOutlined,
+  UserOutlined,
+  ClockCircleOutlined,
+  PhoneOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -76,7 +79,7 @@ export default function PostDetailPage() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: "center", padding: 80 }}>
+      <div style={{ textAlign: "center", padding: 120 }}>
         <Spin size="large" />
       </div>
     );
@@ -86,94 +89,159 @@ export default function PostDetailPage() {
     return <Empty description="信息不存在" />;
   }
 
-  const currentUsername = typeof window !== "undefined" ? localStorage.getItem("username") : null;
+  const currentUsername =
+    typeof window !== "undefined" ? localStorage.getItem("username") : null;
   const isOwner = currentUsername === post.author_name;
 
   return (
-    <div>
+    <div className="fade-in-up">
       {contextHolder}
       <Link href="/lost-found">
-        <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingLeft: 0, marginBottom: 16 }}>
+        <Button
+          type="link"
+          icon={<ArrowLeftOutlined />}
+          style={{ paddingLeft: 0, marginBottom: 16, color: "#4f46e5" }}
+        >
           返回列表
         </Button>
       </Link>
 
       <Card
-        title={
-          <div>
-            <Tag color={categoryColors[post.category]}>{categoryLabels[post.category]}</Tag>
-            {post.title}
-          </div>
-        }
-        extra={
-          isOwner && (
-            <div style={{ display: "flex", gap: 8 }}>
-              {post.status === "active" && (
-                <Button icon={<CheckCircleOutlined />} onClick={handleResolve}>
-                  标记已解决
-                </Button>
-              )}
-              <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>
-                删除
-              </Button>
-            </div>
-          )
-        }
+        style={{
+          borderRadius: 12,
+          border: "none",
+          boxShadow: "var(--card-shadow)",
+          overflow: "hidden",
+        }}
+        styles={{ body: { padding: 0 } }}
       >
-        <Descriptions column={2} bordered size="small">
-          <Descriptions.Item label="发布者">{post.author_name}</Descriptions.Item>
-          <Descriptions.Item label="发布时间">
-            {dayjs(post.created_at).format("YYYY-MM-DD HH:mm:ss")}
-          </Descriptions.Item>
-          <Descriptions.Item label="状态">
-            {post.status === "active" ? (
-              <Tag color="processing">进行中</Tag>
-            ) : post.status === "resolved" ? (
-              <Tag color="success">已解决</Tag>
-            ) : (
-              <Tag color="default">已关闭</Tag>
+        {/* Header */}
+        <div
+          style={{
+            padding: "24px 28px 16px",
+            borderBottom: "1px solid #f5f5f5",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ marginBottom: 8, display: "flex", gap: 8 }}>
+                <Tag
+                  color={categoryColors[post.category]}
+                  style={{ borderRadius: 4 }}
+                >
+                  {categoryLabels[post.category]}
+                </Tag>
+                {post.status === "active" ? (
+                  <Tag color="processing" style={{ borderRadius: 4 }}>进行中</Tag>
+                ) : post.status === "resolved" ? (
+                  <Tag color="success" style={{ borderRadius: 4 }}>已解决</Tag>
+                ) : (
+                  <Tag style={{ borderRadius: 4 }}>已关闭</Tag>
+                )}
+              </div>
+              <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "#1a1a2e" }}>
+                {post.title}
+              </h2>
+            </div>
+            {isOwner && (
+              <div style={{ display: "flex", gap: 8 }}>
+                {post.status === "active" && (
+                  <Button
+                    icon={<CheckCircleOutlined />}
+                    onClick={handleResolve}
+                    style={{ borderRadius: 8 }}
+                  >
+                    标记已解决
+                  </Button>
+                )}
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={handleDelete}
+                  style={{ borderRadius: 8 }}
+                >
+                  删除
+                </Button>
+              </div>
             )}
-          </Descriptions.Item>
-          <Descriptions.Item label="联系方式">
-            {post.contact || post.author_contact || "未提供"}
-          </Descriptions.Item>
-          {post.category === "market" && (
-            <Descriptions.Item label="价格" span={2}>
-              <span style={{ color: "#f5222d", fontSize: 18, fontWeight: 700 }}>
-                ¥{post.price.toFixed(2)}
-              </span>
-            </Descriptions.Item>
-          )}
-        </Descriptions>
+          </div>
+        </div>
 
-        <div style={{ marginTop: 24 }}>
-          <h4>详细内容</h4>
+        {/* Meta Info */}
+        <div
+          style={{
+            padding: "16px 28px",
+            background: "#fafbfc",
+            display: "flex",
+            gap: 32,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <UserOutlined style={{ color: "#4f46e5" }} />
+            <span style={{ color: "#666", fontSize: 14 }}>发布者:</span>
+            <span style={{ fontWeight: 500, fontSize: 14 }}>{post.author_name}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <ClockCircleOutlined style={{ color: "#999" }} />
+            <span style={{ color: "#666", fontSize: 14 }}>发布时间:</span>
+            <span style={{ fontSize: 14 }}>
+              {dayjs(post.created_at).format("YYYY-MM-DD HH:mm:ss")}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <PhoneOutlined style={{ color: "#10b981" }} />
+            <span style={{ color: "#666", fontSize: 14 }}>联系方式:</span>
+            <span style={{ fontSize: 14 }}>{post.contact || post.author_contact || "未提供"}</span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: "24px 28px" }}>
+          <h4 style={{ fontWeight: 600, marginBottom: 12, color: "#1a1a2e" }}>
+            详细内容
+          </h4>
           <div
             style={{
-              background: "#fafafa",
-              padding: 16,
-              borderRadius: 8,
+              background: "#fafbfc",
+              padding: 20,
+              borderRadius: 12,
               whiteSpace: "pre-wrap",
-              lineHeight: 1.8,
+              lineHeight: 1.9,
               fontSize: 15,
+              color: "#333",
+              border: "1px solid #f0f0f0",
             }}
           >
             {post.content}
           </div>
         </div>
 
+        {/* Image */}
         {post.image_url && (
-          <div style={{ marginTop: 16 }}>
-            <h4>图片</h4>
+          <div style={{ padding: "0 28px 24px" }}>
+            <h4 style={{ fontWeight: 600, marginBottom: 12 }}>图片</h4>
             <img
               src={post.image_url}
               alt={post.title}
-              style={{ maxWidth: "100%", borderRadius: 8 }}
+              style={{
+                maxWidth: "100%",
+                borderRadius: 12,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+              }}
             />
           </div>
         )}
 
-        <div style={{ marginTop: 24, color: "#999", fontSize: 13 }}>
+        {/* Footer */}
+        <div
+          style={{
+            padding: "12px 28px",
+            borderTop: "1px solid #f5f5f5",
+            color: "#bbb",
+            fontSize: 13,
+          }}
+        >
           最后更新: {dayjs(post.updated_at).format("YYYY-MM-DD HH:mm:ss")}
         </div>
       </Card>

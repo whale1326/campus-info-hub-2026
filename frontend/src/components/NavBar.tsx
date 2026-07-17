@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Button, Dropdown, Space, message } from "antd";
+import { Button, Dropdown, Space, message, Avatar } from "antd";
 import {
   HomeOutlined,
   SearchOutlined,
@@ -62,9 +62,11 @@ export default function NavBar() {
       {contextHolder}
       <header
         style={{
-          background: "#fff",
-          borderBottom: "1px solid #f0f0f0",
-          padding: "0 24px",
+          background: "rgba(255, 255, 255, 0.85)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
+          padding: "0 32px",
           height: 64,
           display: "flex",
           alignItems: "center",
@@ -72,27 +74,48 @@ export default function NavBar() {
           position: "sticky",
           top: 0,
           zIndex: 100,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+          boxShadow: "0 1px 8px rgba(0, 0, 0, 0.04)",
         }}
       >
         <Space size="large">
-          <Link href="/" style={{ fontSize: 20, fontWeight: 700, color: "#1677ff" }}>
-            🏫 校园信息平台
+          <Link
+            href="/"
+            style={{
+              fontSize: 20,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                background: "var(--gradient-primary)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                fontWeight: 800,
+              }}
+            >
+              Campus Hub
+            </span>
+            <span style={{ fontSize: 16 }}>🏫</span>
           </Link>
           <Space size="middle">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
+                className={pathname === item.href ? "nav-link-active" : ""}
                 style={{
-                  color: pathname === item.href ? "#1677ff" : "#333",
-                  fontWeight: pathname === item.href ? 600 : 400,
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  transition: "all 0.2s",
+                  color: pathname === item.href ? "#4f46e5" : "#555",
+                  fontWeight: pathname === item.href ? 600 : 500,
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  transition: "all 0.25s ease",
+                  fontSize: 15,
                 }}
               >
-                <Space size={4}>
+                <Space size={6}>
                   {item.icon}
                   {item.label}
                 </Space>
@@ -105,17 +128,60 @@ export default function NavBar() {
           {user ? (
             <>
               <Link href="/post/create">
-                <Button type="primary" icon={<PlusOutlined />}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  style={{
+                    borderRadius: 8,
+                    fontWeight: 500,
+                    height: 38,
+                    background: "var(--gradient-blue)",
+                    border: "none",
+                    boxShadow: "0 2px 8px rgba(79, 70, 229, 0.3)",
+                  }}
+                >
                   发布信息
                 </Button>
               </Link>
               <Dropdown menu={userMenu}>
-                <Button icon={<UserOutlined />}>{user.username}</Button>
+                <Space
+                  style={{
+                    cursor: "pointer",
+                    padding: "4px 12px",
+                    borderRadius: 8,
+                    background: "rgba(79, 70, 229, 0.06)",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <Avatar
+                    size={28}
+                    style={{
+                      background: "var(--gradient-blue)",
+                      fontSize: 13,
+                    }}
+                  >
+                    {user.username.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <span style={{ fontWeight: 500, color: "#333" }}>
+                    {user.username}
+                  </span>
+                </Space>
               </Dropdown>
             </>
           ) : (
             <Link href="/login">
-              <Button type="primary" icon={<LoginOutlined />}>
+              <Button
+                type="primary"
+                icon={<LoginOutlined />}
+                style={{
+                  borderRadius: 8,
+                  fontWeight: 500,
+                  height: 38,
+                  background: "var(--gradient-blue)",
+                  border: "none",
+                  boxShadow: "0 2px 8px rgba(79, 70, 229, 0.3)",
+                }}
+              >
                 登录 / 注册
               </Button>
             </Link>

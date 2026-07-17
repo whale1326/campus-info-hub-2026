@@ -19,12 +19,17 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body>
         <AntdRegistry>
-          <ConfigProvider locale={zhCN} theme={{
-            token: {
-              colorPrimary: "#1677ff",
-              borderRadius: 8,
-            },
-          }}>
+          <ConfigProvider
+            locale={zhCN}
+            theme={{
+              token: {
+                colorPrimary: "#4f46e5",
+                borderRadius: 10,
+                fontFamily:
+                  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+              },
+            }}
+          >
             <NavBar />
             <main className="page-container">{children}</main>
           </ConfigProvider>
