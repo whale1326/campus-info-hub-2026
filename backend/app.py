@@ -277,6 +277,117 @@ def get_profile():
     return jsonify({'user': dict(user)})
 
 
+@app.route('/api/auth/profile', methods=['PUT'])
+@login_required
+def update_profile():
+    """
+    Update current user profile.
+    Request: { "contact": "..." }
+    Response: { "message": "...", "user": {...} }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body is required'}), 400
+
+    contact = data.get('contact', '').strip()
+    db = get_db()
+    db.execute(
+        'UPDATE users SET contact = ? WHERE id = ?',
+        (contact, g.current_user['user_id'])
+    )
+    db.commit()
+
+    user = db.execute(
+        'SELECT id, username, contact, is_admin, created_at FROM users WHERE id = ?',
+        (g.current_user['user_id'],)
+    ).fetchone()
+
+    app.logger.info(f'Profile updated: user={g.current_user["username"]}')
+    return jsonify({'message': 'Profile updated successfully', 'user': dict(user)})
+
+
+@app.route('/api/auth/password', methods=['PUT'])
+@login_required
+def change_password():
+    """
+    Change user password.
+    Request: { "old_password": "...", "new_password": "..." }
+    Response: { "message": "..." }
+    """
+    data = request.get_json()
+    if not data or not data.get('old_password') or not data.get('new_password'):
+        return jsonify({'error': 'Old password and new password are required'}), 400
+
+    old_password = data['old_password']
+    new_password = data['new_password']
+
+    if len(new_password) < 6:
+        return jsonify({'error': 'New password must be at least 6 characters'}), 400
+
+    db = get_db()
+    user = db.execute(
+        'SELECT id, password_hash FROM users WHERE id = ?',
+        (g.current_user['user_id'],)
+    ).fetchone()
+
+    if not user or user['password_hash'] != hash_password(old_password):
+        return jsonify({'error': 'Old password is incorrect'}), 401
+
+    db.execute(
+        'UPDATE users SET password_hash = ? WHERE id = ?',
+        (hash_password(new_password), g.current_user['user_id'])
+    )
+    db.commit()
+
+    app.logger.info(f'Password changed: user={g.current_user["username"]}')
+    return jsonify({'message': 'Password changed successfully'})
+
+
+@app.route('/api/posts/my', methods=['GET'])
+@login_required
+def get_my_posts():
+    """
+    Get current user's posts.
+    Query params: page, page_size, category, status
+    Response: { "posts": [...], "total": N }
+    """
+    category = request.args.get('category', '')
+    status = request.args.get('status', '')
+    page = max(int(request.args.get('page', 1)), 1)
+    page_size = min(int(request.args.get('page_size', 10)), 50)
+    offset = (page - 1) * page_size
+
+    query = '''
+        SELECT p.*, u.username AS author_name
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        WHERE p.user_id = ?
+    '''
+    params = [g.current_user['user_id']]
+
+    if category:
+        query += ' AND p.category = ?'
+        params.append(category)
+    if status:
+        query += ' AND p.status = ?'
+        params.append(status)
+
+    count_query = query.replace('SELECT p.*, u.username AS author_name', 'SELECT COUNT(*)')
+    db = get_db()
+    total = db.execute(count_query, params).fetchone()[0]
+
+    query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?'
+    params.extend([page_size, offset])
+    posts = db.execute(query, params).fetchall()
+
+    return jsonify({
+        'posts': [dict(p) for p in posts],
+        'total': total,
+        'page': page,
+        'page_size': page_size
+    })
+
+
 # === Posts API ===
 
 @app.route('/api/posts', methods=['GET'])
