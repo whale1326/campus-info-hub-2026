@@ -179,6 +179,34 @@ export const postsApi = {
   },
 };
 
+// === Comments API ===
+
+export interface Comment {
+  id: number;
+  post_id: number;
+  user_id: number;
+  content: string;
+  created_at: string;
+  author_name: string;
+  author_is_admin: boolean;
+}
+
+export const commentsApi = {
+  list: (postId: number) =>
+    request<{ comments: Comment[] }>(`/posts/${postId}/comments`),
+
+  create: (postId: number, content: string) =>
+    request<{ message: string; comment: Comment }>(`/posts/${postId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
+
+  delete: (commentId: number) =>
+    request<{ message: string }>(`/comments/${commentId}`, {
+      method: "DELETE",
+    }),
+};
+
 // === Stats API ===
 
 export const statsApi = {
