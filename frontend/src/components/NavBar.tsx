@@ -12,6 +12,7 @@ import {
   LogoutOutlined,
   LoginOutlined,
   SettingOutlined,
+  ProfileOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState } from "react";
 
@@ -43,6 +44,12 @@ export default function NavBar() {
         key: "username",
         label: `用户: ${user?.username}`,
         disabled: true,
+      },
+      {
+        key: "profile",
+        label: "个人中心",
+        icon: <ProfileOutlined />,
+        onClick: () => { window.location.href = "/profile"; },
       },
       ...(user?.is_admin
         ? [{
