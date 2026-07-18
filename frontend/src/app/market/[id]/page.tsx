@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { postsApi, isLoggedIn, type Post } from "@/lib/api";
+import CommentSection from "@/components/CommentSection";
 import dayjs from "dayjs";
 
 export default function MarketDetailPage() {
@@ -228,6 +229,8 @@ export default function MarketDetailPage() {
           </div>
         </div>
       </Card>
+
+      <CommentSection postId={post.id} postStatus={post.status} />
     </div>
   );
 }

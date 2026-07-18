@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { postsApi, isLoggedIn, type Post } from "@/lib/api";
+import CommentSection from "@/components/CommentSection";
 import dayjs from "dayjs";
 
 const categoryLabels: Record<string, string> = {
@@ -245,6 +246,8 @@ export default function PostDetailPage() {
           最后更新: {dayjs(post.updated_at).format("YYYY-MM-DD HH:mm:ss")}
         </div>
       </Card>
+
+      <CommentSection postId={post.id} postStatus={post.status} />
     </div>
   );
 }
