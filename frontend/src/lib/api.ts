@@ -45,6 +45,7 @@ export interface User {
   username: string;
   contact: string;
   is_admin?: boolean;
+  created_at?: string;
 }
 
 function getToken(): string | null {
@@ -107,6 +108,18 @@ export const authApi = {
 
   getProfile: () =>
     request<{ user: User }>("/auth/profile"),
+
+  updateProfile: (contact: string) =>
+    request<{ message: string; user: User }>("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify({ contact }),
+    }),
+
+  changePassword: (oldPassword: string, newPassword: string) =>
+    request<{ message: string }>("/auth/password", {
+      method: "PUT",
+      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+    }),
 };
 
 // === Posts API ===
@@ -154,6 +167,16 @@ export const postsApi = {
     request<{ message: string }>(`/posts/${id}`, {
       method: "DELETE",
     }),
+
+  getMyPosts: (params?: { category?: string; status?: string; page?: number; page_size?: number }) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v) query.append(k, String(v));
+      });
+    }
+    return request<PostsResponse>(`/posts/my${query.toString() ? `?${query}` : ""}`);
+  },
 };
 
 // === Stats API ===
