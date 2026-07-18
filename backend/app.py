@@ -73,9 +73,21 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
 
+        CREATE TABLE IF NOT EXISTS comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            post_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category);
         CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
         CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
+        CREATE INDEX IF NOT EXISTS idx_comments_created ON comments(created_at DESC);
     """)
 
     # Add is_admin column if upgrading from older schema (ignore error if exists)
@@ -582,6 +594,104 @@ def delete_post(post_id):
 
     app.logger.info(f'Post deleted: id={post_id}, by user={g.current_user["username"]}')
     return jsonify({'message': 'Post deleted successfully'})
+
+
+# === Comments API ===
+
+@app.route('/api/posts/<int:post_id>/comments', methods=['GET'])
+def get_comments(post_id):
+    """
+    Get comments for a post.
+    Response: { "comments": [...] }
+    """
+    db = get_db()
+    post = db.execute('SELECT id FROM posts WHERE id = ?', (post_id,)).fetchone()
+    if not post:
+        return jsonify({'error': 'Post not found'}), 404
+
+    comments = db.execute('''
+        SELECT c.id, c.post_id, c.user_id, c.content, c.created_at,
+               u.username AS author_name, u.is_admin AS author_is_admin
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.post_id = ?
+        ORDER BY c.created_at ASC
+    ''', (post_id,)).fetchall()
+
+    return jsonify({'comments': [dict(c) for c in comments]})
+
+
+@app.route('/api/posts/<int:post_id>/comments', methods=['POST'])
+@login_required
+def create_comment(post_id):
+    """
+    Create a comment on a post. Requires authentication.
+    Request: { "content": "..." }
+    Response: { "message": "...", "comment": {...} }
+    """
+    data = request.get_json()
+    if not data or not data.get('content', '').strip():
+        return jsonify({'error': 'Comment content is required'}), 400
+
+    content = data['content'].strip()
+    if len(content) > 500:
+        return jsonify({'error': 'Comment must be 500 characters or less'}), 400
+
+    db = get_db()
+    post = db.execute('SELECT id, status FROM posts WHERE id = ?', (post_id,)).fetchone()
+    if not post:
+        return jsonify({'error': 'Post not found'}), 404
+
+    if post['status'] == 'closed':
+        return jsonify({'error': 'Comments are disabled on closed posts'}), 400
+
+    cursor = db.execute(
+        'INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)',
+        (post_id, g.current_user['user_id'], content)
+    )
+    db.commit()
+
+    comment_id = cursor.lastrowid
+    comment = db.execute('''
+        SELECT c.id, c.post_id, c.user_id, c.content, c.created_at,
+               u.username AS author_name, u.is_admin AS author_is_admin
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.id = ?
+    ''', (comment_id,)).fetchone()
+
+    app.logger.info(f'Comment created: post_id={post_id}, by user={g.current_user["username"]}')
+    return jsonify({
+        'message': 'Comment added successfully',
+        'comment': dict(comment)
+    }), 201
+
+
+@app.route('/api/comments/<int:comment_id>', methods=['DELETE'])
+@login_required
+def delete_comment(comment_id):
+    """
+    Delete a comment. Only the comment author or admin can delete.
+    Response: { "message": "..." }
+    """
+    db = get_db()
+    comment = db.execute(
+        'SELECT id, user_id, post_id FROM comments WHERE id = ?',
+        (comment_id,)
+    ).fetchone()
+
+    if not comment:
+        return jsonify({'error': 'Comment not found'}), 404
+
+    is_admin = g.current_user.get('is_admin', False)
+    if comment['user_id'] != g.current_user['user_id'] and not is_admin:
+        return jsonify({'error': 'Permission denied: you can only delete your own comments'}), 403
+
+    db.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
+    db.commit()
+
+    app.logger.info(f'Comment deleted: id={comment_id}, by user={g.current_user["username"]}')
+    return jsonify({'message': 'Comment deleted successfully'})
 
 
 # === Stats API (bonus) ===
