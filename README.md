@@ -2,6 +2,8 @@
 
 > AI 辅助编程与工程化实训项目
 
+**线上 Demo 地址：** https://c059fc16bd1343a8ab200b687918937e.app.codebuddy.work
+
 一个基于 Next.js + Flask + SQLite 的全栈校园信息平台，支持失物招领、二手交易、信息发布、评论留言，并包含管理员后台和个人中心。
 
 ## 项目介绍
@@ -24,7 +26,7 @@
 | 后端框架 | Python Flask 3 | 轻量级 Web 框架 |
 | 数据库 | SQLite (开发) / Supabase PostgreSQL (生产) | 本地开发用 SQLite，生产环境用 Supabase |
 | 认证方案 | JWT (PyJWT) | 无状态 token 认证 |
-| 部署平台 | Vercel (前端) + Render (后端) | 自动化部署 |
+| 部署平台 | CloudStudio 沙箱 | 线上展示页部署 |
 
 ## 项目结构
 
