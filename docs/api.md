@@ -297,6 +297,370 @@ Token 通过注册或登录接口获取，有效期 24 小时。
 
 ---
 
+## 11. 更新个人资料
+
+### `PUT /api/auth/profile` 🔒
+
+更新当前登录用户的联系方式。
+
+**请求体：**
+```json
+{
+  "contact": "微信: zhangsan_new"
+}
+```
+
+**成功响应：**
+```json
+{
+  "message": "Profile updated successfully",
+  "user": {
+    "id": 1,
+    "username": "张三",
+    "contact": "微信: zhangsan_new",
+    "is_admin": false,
+    "created_at": "2026-07-17 10:30:00"
+  }
+}
+```
+
+---
+
+## 12. 修改密码
+
+### `PUT /api/auth/password` 🔒
+
+修改当前登录用户的密码，需验证旧密码。
+
+**请求体：**
+```json
+{
+  "old_password": "mypassword123",
+  "new_password": "newpassword456"
+}
+```
+
+**成功响应：**
+```json
+{
+  "message": "Password changed successfully"
+}
+```
+
+**错误响应：**
+| 状态码 | 说明 |
+|--------|------|
+| 400 | 旧密码和新密码为空 / 新密码长度不足6位 |
+| 401 | 旧密码错误 |
+
+---
+
+## 13. 我的发布列表
+
+### `GET /api/posts/my` 🔒
+
+获取当前登录用户发布的帖子列表。
+
+**查询参数：**
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| category | string | - | 筛选类别: lost_found / market / info |
+| status | string | - | 筛选状态: active / resolved / closed |
+| page | int | 1 | 页码 |
+| page_size | int | 10 | 每页数量 (最大50) |
+
+**成功响应：**
+```json
+{
+  "posts": [ ... ],
+  "total": 5,
+  "page": 1,
+  "page_size": 10
+}
+```
+
+---
+
+## 14. 获取评论列表
+
+### `GET /api/posts/:id/comments`
+
+获取指定帖子的评论列表。公开接口，无需认证。
+
+**成功响应：**
+```json
+{
+  "comments": [
+    {
+      "id": 1,
+      "post_id": 5,
+      "user_id": 2,
+      "content": "这个物品还在吗？",
+      "created_at": "2026-07-19 01:39:24",
+      "author_name": "李四",
+      "author_is_admin": false
+    }
+  ]
+}
+```
+
+**错误响应：**
+| 状态码 | 说明 |
+|--------|------|
+| 404 | 帖子不存在 |
+
+---
+
+## 15. 发表评论
+
+### `POST /api/posts/:id/comments` 🔒
+
+在指定帖子下发表评论。已关闭 (closed) 的帖子不允许评论。
+
+**请求体：**
+```json
+{
+  "content": "这个物品还在吗？"
+}
+```
+
+**字段说明：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| content | string | 是 | 评论内容，最多500字符 |
+
+**成功响应 (201)：**
+```json
+{
+  "message": "Comment added successfully",
+  "comment": {
+    "id": 2,
+    "post_id": 5,
+    "user_id": 2,
+    "content": "这个物品还在吗？",
+    "created_at": "2026-07-19 01:40:00",
+    "author_name": "李四",
+    "author_is_admin": false
+  }
+}
+```
+
+**错误响应：**
+| 状态码 | 说明 |
+|--------|------|
+| 400 | 评论内容为空 / 超过500字符 / 帖子已关闭 |
+| 404 | 帖子不存在 |
+
+---
+
+## 16. 删除评论
+
+### `DELETE /api/comments/:id` 🔒
+
+删除评论。只有评论作者和管理员可以删除。
+
+**成功响应：**
+```json
+{
+  "message": "Comment deleted successfully"
+}
+```
+
+**错误响应：**
+| 状态码 | 说明 |
+|--------|------|
+| 403 | 无权限（非作者且非管理员） |
+| 404 | 评论不存在 |
+
+---
+
+## 17. 管理员统计数据
+
+### `GET /api/admin/stats` 🔒 🔑
+
+获取管理员仪表盘统计数据。仅管理员可访问。
+
+**成功响应：**
+```json
+{
+  "total_users": 15,
+  "total_posts": 42,
+  "active_posts": 35,
+  "by_category": {
+    "lost_found": 18,
+    "market": 15,
+    "info": 9
+  },
+  "by_status": {
+    "active": 35,
+    "resolved": 5,
+    "closed": 2
+  },
+  "recent_users": [
+    {
+      "id": 15,
+      "username": "新用户",
+      "contact": "微信: newuser",
+      "is_admin": false,
+      "created_at": "2026-07-19 00:00:00"
+    }
+  ]
+}
+```
+
+**错误响应：**
+| 状态码 | 说明 |
+|--------|------|
+| 401 | 未认证 / Token 过期 |
+| 403 | 非管理员用户 |
+
+---
+
+## 18. 用户列表
+
+### `GET /api/admin/users` 🔒 🔑
+
+获取所有用户列表。仅管理员可访问。
+
+**查询参数：**
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| keyword | string | - | 按用户名搜索 |
+| page | int | 1 | 页码 |
+| page_size | int | 20 | 每页数量 (最大50) |
+
+**成功响应：**
+```json
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "contact": "System Administrator",
+      "is_admin": true,
+      "created_at": "2026-07-17 10:00:00"
+    }
+  ],
+  "total": 15,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+---
+
+## 19. 删除用户
+
+### `DELETE /api/admin/users/:id` 🔒 🔑
+
+删除指定用户及其所有帖子。仅管理员可访问。不能删除自己。
+
+**成功响应：**
+```json
+{
+  "message": "User and all associated posts deleted successfully"
+}
+```
+
+**错误响应：**
+| 状态码 | 说明 |
+|--------|------|
+| 400 | 不能删除自己 |
+| 404 | 用户不存在 |
+
+---
+
+## 20. 管理员帖子列表
+
+### `GET /api/admin/posts` 🔒 🔑
+
+获取所有帖子列表（包含所有状态）。仅管理员可访问。
+
+**查询参数：**
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| category | string | - | 筛选类别: lost_found / market / info |
+| status | string | - | 筛选状态: active / resolved / closed |
+| keyword | string | - | 搜索标题和内容 |
+| page | int | 1 | 页码 |
+| page_size | int | 20 | 每页数量 (最大50) |
+
+**成功响应：**
+```json
+{
+  "posts": [ ... ],
+  "total": 42,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+---
+
+## 21. 删除帖子（管理员）
+
+### `DELETE /api/admin/posts/:id` 🔒 🔑
+
+管理员删除任意帖子。仅管理员可访问。
+
+**成功响应：**
+```json
+{
+  "message": "Post deleted by admin successfully"
+}
+```
+
+**错误响应：**
+| 状态码 | 说明 |
+|--------|------|
+| 404 | 帖子不存在 |
+
+---
+
+## 22. 审核帖子状态
+
+### `PUT /api/admin/posts/:id/status` 🔒 🔑
+
+管理员修改帖子状态（内容审核）。仅管理员可访问。
+
+**请求体：**
+```json
+{
+  "status": "closed"
+}
+```
+
+**字段说明：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| status | string | 是 | 新状态: active / resolved / closed |
+
+**成功响应：**
+```json
+{
+  "message": "Post status updated successfully",
+  "post": { ... }
+}
+```
+
+**错误响应：**
+| 状态码 | 说明 |
+|--------|------|
+| 400 | 状态值为空或无效 |
+| 404 | 帖子不存在 |
+
+---
+
+## 接口标识说明
+
+| 标识 | 说明 |
+|------|------|
+| - | 公开接口，无需认证 |
+| 🔒 | 需要登录认证（携带 JWT Token） |
+| 🔑 | 需要管理员权限 |
+
+---
+
 ## 错误码说明
 
 | 状态码 | 说明 |
